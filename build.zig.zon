@@ -1,0 +1,18 @@
+.{
+    .name = .zacian,
+    .version = "0.0.0",
+    .fingerprint = 0x7506f027fb912c7,
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{
+        .lmap = .{
+            .url = "git+https://github.com/jambuz/lmap#59a7dc9e33bb9f6c9ac39e9d0ce7f01843600b62",
+            .hash = "lmap-0.0.0-Jcsbn4chAAAhkF8xCmfXGQBDCTq5VOGzBrVtJUoKX956",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

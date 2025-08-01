@@ -28,3 +28,12 @@ pub fn main() !void {
         try Injector.inject(allocator, zygote_pid);
     } else return error.NoPidProvided;
 }
+
+test "a" {
+    var scratch_buf: [4 * 1024 * 1024]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&scratch_buf);
+    const allocator = fba.allocator();
+
+    const p = try MapParser.init(allocator, null, null);
+    defer p.deinit();
+}

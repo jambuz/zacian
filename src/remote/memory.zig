@@ -28,6 +28,8 @@ pub const RemoteMemory = struct {
         self.proc_mem_file.close();
     }
 
+    pub fn getCodeCave(self: @This(), search_start_addr: usize, cave_size: usize) !usize {}
+
     pub inline fn read(self: @This(), addr: usize, buf: []u8) !usize {
         try self.proc_mem_file.seekTo(addr);
         return self.proc_mem_file.read(buf);

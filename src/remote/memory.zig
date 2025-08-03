@@ -24,11 +24,33 @@ pub const RemoteMemory = struct {
         };
     }
 
-    pub fn deinit(self: *@This()) void {
-        self.proc_mem_file.close();
-    }
+    // TODO: reconsider utilizing std.mem.indexOf
+    pub fn getCodeCave(self: @This(), search_start_addr: usize, search_end_addr: usize, comptime cave_size: usize) !usize {
+        const buf_size = search_end_addr - search_start_addr;
+        const buf = try self.allocator.alloc(u8, buf_size);
+        defer self.allocator.free(buf);
 
-    pub fn getCodeCave(self: @This(), search_start_addr: usize, cave_size: usize) !usize {}
+        const read_len = try self.readIov(search_start_addr, buf);
+        const match = try self.allocator.create([cave_size]u8);
+        defer self.allocator.destroy(match);
+
+        const offset = std.mem.indexOf(u8, buf[0..read_len], match) orelse return error.CaveNotFound;
+        return search_start_addr + offset;
+
+        // var consecutive_zeros: usize = 0;
+        // for (buf[0..read_len], 0..) |byte, i| {
+        //     if (byte == 0x00) {
+        //         consecutive_zeros += 1;
+        //         if (consecutive_zeros >= cave_size) {
+        //             return search_start_addr + i - (cave_size - 1);
+        //         }
+        //     } else {
+        //         consecutive_zeros = 0;
+        //     }
+        // }
+
+        // return error.CaveNotFound;
+    }
 
     pub inline fn read(self: @This(), addr: usize, buf: []u8) !usize {
         try self.proc_mem_file.seekTo(addr);
@@ -80,5 +102,9 @@ pub const RemoteMemory = struct {
             }
         }
         return error.InvalidPid;
+    }
+
+    pub fn deinit(self: *@This()) void {
+        self.proc_mem_file.close();
     }
 };

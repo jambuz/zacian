@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const ProcessMapParser = @import("lmap").ProcessMapParser;
+
 const RemoteMemory = @import("remote/memory.zig").RemoteMemory;
 const Registers = @import("remote/registers.zig");
 const Stubs = @import("stubs.zig");
@@ -52,25 +54,23 @@ pub inline fn inject(allocator: std.mem.Allocator, zygote_pid: std.posix.pid_t) 
 
         // 12. Retrieve the current registers of the child process
         const regs = try Registers.getRegs(child_pid);
-        std.log.debug("Program counter (pc): {x}", .{regs.pc});
+        std.log.debug("[*] Program counter (pc): {x}", .{regs.pc});
 
         // 13. Read 32 bytes of memory from the child's current program counter (pc)
         var initial_mem: [32]u8 = undefined;
         _ = try remote_mem.read(regs.pc, &initial_mem);
-        std.log.debug("32 bytes at pc {x} = {x}", .{ regs.pc, std.fmt.fmtSliceHexLower(&initial_mem) });
+        std.log.debug("[*] 32 bytes at pc {x} = {x}", .{ regs.pc, std.fmt.fmtSliceHexLower(&initial_mem) });
 
-        // 14. Write a custom ARM64 "segfault" stub at the child's program counter + 4
-        try remote_mem.write(regs.pc + 4, Stubs.ARM64Segfault);
+        // 14. write jmp
+        const code_cave_addr = try remote_mem.getCodeCave(regs.pc, regs.pc + 256 * 256, Stubs.ARM64Trampoline.len);
+        std.log.debug("[*] code cave: {x}\n", .{code_cave_addr});
 
-        // 15. Read 64 bytes of memory from the region around the current pc - 32
-        var new_mem: [64]u8 = undefined;
-        _ = try remote_mem.read(regs.pc - 32, &new_mem);
-        std.log.debug("+-64 bytes around pc {x} = {x}", .{ regs.pc, std.fmt.fmtSliceHexLower(&new_mem) });
+        // 15. write jmp
+        try remote_mem.write(regs.pc, Stubs.ARM64Trampoline);
 
-        // 16. Sleep briefly to let the child process execute the injected code
-        std.posix.nanosleep(10, 0);
+        // 16. write stub
+        try remote_mem.write(code_cave_addr, Stubs.ARM64Trampoline);
 
-        // 17. Resume execution of the parent process
         try std.posix.ptrace(std.os.linux.PTRACE.CONT, zygote_pid, 0, 0);
     } else {
         // If no fork event occurred, return an error

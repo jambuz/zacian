@@ -1,3 +1,5 @@
+const std = @import("std");
+
 // $ xxd -c1 -p stub.bin
 
 pub const ARM64Trampoline = &[_]u8{
@@ -46,3 +48,37 @@ pub const ARM64Segfault = &[_]u8{
     0x21, 0x00, 0x80, 0xD2,
     0x00, 0x00, 0x40, 0xF9,
 };
+
+pub inline fn ARM64BranchToAddress(address: usize) []const u8 {
+    var bytes: [@sizeOf(usize)]u8 = undefined;
+    std.mem.writeInt(u64, &bytes, address, .little);
+
+    return &[_]u8{
+        0x40, 0x55, 0x95, 0xd2,
+        0x60, 0x77, 0xb7, 0xf2,
+        0x80, 0x19, 0xc0, 0xf2,
+        0x00, 0x00, 0x1f, 0xd6,
+    };
+}
+
+test "arm64 movk" {
+    const address = 0x00CCBBBBAAAA;
+    const part0 = @as(u16, @truncate(address));
+    const part1 = @as(u16, @truncate(address >> 16));
+    const part2 = @as(u16, @truncate(address >> 32));
+
+    const mov_x0_part0 = 0xD2800000 | (@as(u32, part0) << 5);
+    const movk_x0_part1 = 0xF2800000 | (@as(u32, part1) << 5) | (1 << 21);
+    const movk_x0_part2 = 0xF2800000 | (@as(u32, part2) << 5) | (2 << 21);
+
+    const br_x0 = 0xD61F0000; // BR x0
+
+    // Pack into bytes (little-endian)
+    var code: [16]u8 = undefined;
+    std.mem.writeInt(u32, code[0..4], mov_x0_part0, .little);
+    std.mem.writeInt(u32, code[4..8], movk_x0_part1, .little);
+    std.mem.writeInt(u32, code[8..12], movk_x0_part2, .little);
+    std.mem.writeInt(u32, code[12..16], br_x0, .little);
+
+    std.debug.print("{x}\n", .{std.fmt.fmtSliceHexLower(&code)});
+}

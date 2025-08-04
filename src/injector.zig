@@ -61,8 +61,24 @@ pub inline fn inject(allocator: std.mem.Allocator, zygote_pid: std.posix.pid_t) 
         _ = try remote_mem.read(regs.pc, &initial_mem);
         std.log.debug("[*] 32 bytes at pc {x} = {x}", .{ regs.pc, std.fmt.fmtSliceHexLower(&initial_mem) });
 
+        var parser = try ProcessMapParser.init(allocator, child_pid);
+        defer parser.deinit();
+
+        const libc_map_rx = blk: {
+            for (parser.maps.items) |map| {
+                if (std.mem.endsWith(u8, map.path, "libc.so") and map.perms.execute) {
+                    break :blk map;
+                }
+            }
+            return error.LibcNotFound;
+        };
+
         // 14. write jmp
-        const code_cave_addr = try remote_mem.getCodeCave(regs.pc, regs.pc + 256 * 256, Stubs.ARM64Trampoline.len);
+        const code_cave_addr = try remote_mem.getCodeCave(
+            libc_map_rx.start,
+            libc_map_rx.start + 1024 * 1024,
+            Stubs.ARM64Trampoline.len,
+        );
         std.log.debug("[*] code cave: {x}\n", .{code_cave_addr});
 
         // 15. write jmp

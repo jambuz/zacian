@@ -6,7 +6,7 @@
     .dependencies = .{
         .lmap = .{
             .url = "/home/foo/lmap/",
-            .hash = "lmap-0.0.0-UG7HYP0OAAAIOK7SKSd6IxEAKQvst9SOmJJPyieFfSy2",
+            .hash = "lmap-0.0.0-UG7HYAIPAAAvG2FxX2xOXV6LmKuRCdJGOMzxgQTAcowB",
         },
     },
 

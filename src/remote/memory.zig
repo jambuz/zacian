@@ -24,17 +24,14 @@ pub const RemoteMemory = struct {
         };
     }
 
-    // TODO: reconsider utilizing std.mem.indexOf
+    /// Search for a code cave of null bytes starting from `search_start_addr`
     pub fn getCodeCave(self: @This(), search_start_addr: usize, search_end_addr: usize, comptime cave_size: usize) !usize {
         const buf_size = search_end_addr - search_start_addr;
         const buf = try self.allocator.alloc(u8, buf_size);
         defer self.allocator.free(buf);
 
         const read_len = try self.readIov(search_start_addr, buf);
-
-        // Create a zero-filled pattern to search for
         const pattern = [_]u8{0x00} ** cave_size;
-
         const offset = std.mem.indexOf(u8, buf[0..read_len], &pattern) orelse return error.CaveNotFound;
         return search_start_addr + offset;
     }

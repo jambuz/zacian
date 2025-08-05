@@ -79,13 +79,19 @@ pub inline fn inject(allocator: std.mem.Allocator, zygote_pid: std.posix.pid_t) 
             libc_map_rx.start + 1024 * 1024,
             Stubs.ARM64Trampoline.len,
         );
+        if (code_cave_addr > libc_map_rx.end) return error.CaveOutOfRange;
         std.log.debug("[*] code cave: {x}\n", .{code_cave_addr});
 
-        // 15. write jmp
-        try remote_mem.write(regs.pc, Stubs.ARM64Trampoline);
+        // @STAGE1
+        // 15. write loader
+        try remote_mem.write(regs.pc, Stubs.ARM64BranchToAddress(code_cave_addr));
+
+        var code_cave_mem: [32]u8 = undefined;
+        _ = try remote_mem.read(code_cave_addr, &code_cave_mem);
+        std.log.debug("[*] 32 bytes at cave {x} = {x}", .{ code_cave_addr, std.fmt.fmtSliceHexLower(&code_cave_mem) });
 
         // 16. write stub
-        try remote_mem.write(code_cave_addr, Stubs.ARM64Trampoline);
+        try remote_mem.write(code_cave_addr, Stubs.ARM64Segfault);
 
         try std.posix.ptrace(std.os.linux.PTRACE.CONT, zygote_pid, 0, 0);
     } else {

@@ -9,6 +9,7 @@ trampoline:
 
     mov x8, #221 // execve syscall number
     svc #0 
+    ret
 
 bin_ls:
     .ascii "/bin/ls\0" // use .ascii instead of .asciz for clarity

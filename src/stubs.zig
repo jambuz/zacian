@@ -3,14 +3,15 @@ const std = @import("std");
 // $ xxd -c1 -p stub.bin
 
 pub const ARM64Trampoline = &[_]u8{
-    0xc0, 0x00, 0x00, 0x10, //     adr x0, bin_ls
+    0xe0, 0x00, 0x00, 0x10, //     adr x0, bin_ls
     0xe0, 0x7f, 0xbf, 0xa9, // stp x0, xzr, [sp, #-16]! // create and store custom argv on the stack
     0xe1, 0x03, 0x00, 0x91, // mov x1, sp
     0xe2, 0x03, 0x1f, 0xaa, // mov x2, xzr
     0xa8, 0x1b, 0x80, 0xd2, // mov x8, #221 // execve syscall number
     0x01, 0x00, 0x00, 0xd4, // svc #0
-    0x2f, 0x62, 0x69, 0x6e, // Initialize /bin/ls\0
-    0x2f, 0x6c, 0x73, 0x00, // as an ascii string
+    0xc0, 0x03, 0x5f, 0xd6, // Initialize /bin/ls\0
+    0x2f, 0x62, 0x69, 0x6e, // as an ascii string
+    0x2f, 0x6c, 0x73, 0x00, // ret
 };
 
 pub const ARM64Exit = &[_]u8{
@@ -47,22 +48,13 @@ pub const ARM64Segfault = &[_]u8{
     0x00, 0x00, 0x80, 0xD2,
     0x21, 0x00, 0x80, 0xD2,
     0x00, 0x00, 0x40, 0xF9,
+    0x2f, 0x6c, 0x73, 0x00, // ret
 };
 
 pub inline fn ARM64BranchToAddress(address: usize) []const u8 {
     var bytes: [@sizeOf(usize)]u8 = undefined;
     std.mem.writeInt(u64, &bytes, address, .little);
 
-    return &[_]u8{
-        0x40, 0x55, 0x95, 0xd2,
-        0x60, 0x77, 0xb7, 0xf2,
-        0x80, 0x19, 0xc0, 0xf2,
-        0x00, 0x00, 0x1f, 0xd6,
-    };
-}
-
-test "arm64 movk" {
-    const address = 0x00CCBBBBAAAA;
     const part0 = @as(u16, @truncate(address));
     const part1 = @as(u16, @truncate(address >> 16));
     const part2 = @as(u16, @truncate(address >> 32));
@@ -71,14 +63,23 @@ test "arm64 movk" {
     const movk_x0_part1 = 0xF2800000 | (@as(u32, part1) << 5) | (1 << 21);
     const movk_x0_part2 = 0xF2800000 | (@as(u32, part2) << 5) | (2 << 21);
 
-    const br_x0 = 0xD61F0000; // BR x0
+    var load_adr_code: [12]u8 = undefined;
+    std.mem.writeInt(u32, load_adr_code[0..4], mov_x0_part0, .little);
+    std.mem.writeInt(u32, load_adr_code[4..8], movk_x0_part1, .little);
+    std.mem.writeInt(u32, load_adr_code[8..12], movk_x0_part2, .little);
 
-    // Pack into bytes (little-endian)
-    var code: [16]u8 = undefined;
-    std.mem.writeInt(u32, code[0..4], mov_x0_part0, .little);
-    std.mem.writeInt(u32, code[4..8], movk_x0_part1, .little);
-    std.mem.writeInt(u32, code[8..12], movk_x0_part2, .little);
-    std.mem.writeInt(u32, code[12..16], br_x0, .little);
-
-    std.debug.print("{x}\n", .{std.fmt.fmtSliceHexLower(&code)});
+    return load_adr_code ++ &[_]u8{
+        // blr x0
+        // return to PC + 4
+        // (because stub stored PC + 4 in x30 via blr)
+        0x00, 0x00, 0x3f, 0xd6,
+    };
 }
+
+test "arm64 movk" {
+    const address = 0x6fc6295254;
+    const branch_to_addr_stub = comptime ARM64BranchToAddress(address);
+    std.debug.print("{x}\n", .{std.fmt.fmtSliceHexLower(branch_to_addr_stub)});
+}
+
+// todo write minimal assembler runtime to create the instruction opcodes.

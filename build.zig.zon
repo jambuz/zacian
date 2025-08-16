@@ -5,7 +5,7 @@
     .minimum_zig_version = "0.14.1",
     .dependencies = .{
         .lmap = .{
-            .url = "/home/foo/lmap/",
+            .url = "git+https://github.com/jambuz/lmap#eccf4f150b7f15be3fcf95fe5bc68209f35c2b49",
             .hash = "lmap-0.0.0-UG7HYAIPAAAvG2FxX2xOXV6LmKuRCdJGOMzxgQTAcowB",
         },
     },
